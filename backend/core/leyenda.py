@@ -1,15 +1,7 @@
-"""
-Leyenda MapBiomas Colombia — fuente: Codigo-de-la-Leyenda-coleccion-3.pdf
-(Validation_TEAM/Codigo-de-la-Leyenda-coleccion-3.pdf).
-
-IDs, etiquetas ES y colores hexadecimales del documento oficial.
-"""
-
 from __future__ import annotations
 
 from typing import Any
 
-# (id, label_es, hex sin #) — hojas + nodos padre del PDF
 _LEYENDA_PDF: list[tuple[int, str, str]] = [
     # 1. Formación boscosa
     (1, "1. Formación boscosa", "1F8D49"),

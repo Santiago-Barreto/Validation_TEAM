@@ -34,6 +34,7 @@ def _default_xlsx_path() -> str:
         )
         return os.path.join(
             root,
+            "data",
             "COLOMBIA_COL_4_Formatos de avance detallado Colombia.xlsx",
         )
 

@@ -295,6 +295,44 @@ def identificar_punto(
         except Exception:
             logger.debug("Sin feature de región en el punto", exc_info=True)
 
+        # Cobertura nacional (Colombia) vs biomas activos del visor.
+        # Comentarios solo si hay biomas ejecutados y el punto cae en ellos.
+        if region_info:
+            en_colombia = True
+            en_bioma_activo = bool(biomas)
+        else:
+            en_colombia = False
+            try:
+                n_col = int(
+                    ee.FeatureCollection(PATHS["region_vector"])
+                    .filterBounds(point)
+                    .size()
+                    .getInfo()
+                    or 0
+                )
+                en_colombia = n_col > 0
+            except Exception:
+                logger.debug("No se pudo verificar cobertura Colombia", exc_info=True)
+                en_colombia = _bbox_colombia(lat, lon)
+            en_bioma_activo = False
+
+        permite_comentario = bool(biomas) and en_colombia and en_bioma_activo
+        if not biomas:
+            mensaje_comentario = (
+                "Ejecuta al menos un bioma antes de crear comentarios."
+            )
+        elif not en_colombia:
+            mensaje_comentario = (
+                "Solo se pueden crear comentarios dentro del territorio de Colombia."
+            )
+        elif not en_bioma_activo:
+            mensaje_comentario = (
+                "El punto está fuera de los biomas ejecutados. "
+                "Ejecuta el bioma correspondiente para comentar aquí."
+            )
+        else:
+            mensaje_comentario = ""
+
         stack = col4.select([band], ["v4"])
         include_col3 = year <= COL3_MAX_YEAR
         if include_col3:
@@ -310,13 +348,21 @@ def identificar_punto(
         v4 = info.get("v4")
         v3 = info.get("v3") if include_col3 else None
 
+        base = {
+            "lat": lat,
+            "lon": lon,
+            "year": year,
+            "en_colombia": en_colombia,
+            "en_bioma_activo": en_bioma_activo,
+            "permite_comentario": permite_comentario,
+            "mensaje_comentario": mensaje_comentario,
+            "region": region_info or None,
+        }
+
         if v4 is None:
             return {
-                "lat": lat,
-                "lon": lon,
-                "year": year,
+                **base,
                 "fuera_de_area": True,
-                "region": region_info or None,
             }
 
         cambio = None
@@ -328,11 +374,8 @@ def identificar_punto(
             cambio = "detectado"
 
         return {
-            "lat": lat,
-            "lon": lon,
-            "year": year,
+            **base,
             "fuera_de_area": False,
-            "region": region_info or None,
             "col3": {
                 "id": v3,
                 "nombre": nombre_clase(v3) if v3 is not None else "N/A",
@@ -346,3 +389,256 @@ def identificar_punto(
     except Exception as e:
         logger.exception("Error identificar punto")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+def _bbox_colombia(lat: float, lon: float) -> bool:
+    return -5.0 <= float(lat) <= 13.6 and -82.0 <= float(lon) <= -66.0
+
+
+def evaluar_ubicacion_comentario(
+    lat: float, lon: float, biomas: Optional[list[str]] = None
+) -> dict[str, Any]:
+    """
+    Validación ligera (solo vector de regiones, sin mosaicos Col3/Col4).
+    Pensada para abrir el formulario de comentario sin esperar identify completo.
+    """
+    lat_f, lon_f = float(lat), float(lon)
+    base: dict[str, Any] = {
+        "lat": lat_f,
+        "lon": lon_f,
+        "en_colombia": False,
+        "en_bioma_activo": False,
+        "permite_comentario": False,
+        "mensaje_comentario": "",
+        "region": None,
+    }
+
+    if not biomas:
+        base["mensaje_comentario"] = (
+            "Ejecuta al menos un bioma antes de crear comentarios."
+        )
+        return base
+
+    if not _bbox_colombia(lat_f, lon_f):
+        base["mensaje_comentario"] = (
+            "Solo se pueden crear comentarios dentro del territorio de Colombia."
+        )
+        return base
+
+    internos = expandir_biomas(biomas)
+    if not internos:
+        base["mensaje_comentario"] = "Selecciona al menos un bioma ejecutado."
+        return base
+
+    point = ee.Geometry.Point([lon_f, lat_f])
+    try:
+        hit = _region_class(internos).filterBounds(point)
+        # Un solo round-trip EE: tamaño + props de la región
+        packed = (
+            ee.Dictionary(
+                {
+                    "n": hit.size(),
+                    "props": ee.Feature(hit.first()).toDictionary(
+                        ["bioma", "id_regionC", "id_region"]
+                    ),
+                }
+            ).getInfo()
+            or {}
+        )
+        n_bio = int(packed.get("n") or 0)
+        if n_bio > 0:
+            props = packed.get("props") or {}
+            rid = props.get("id_regionC")
+            base.update(
+                {
+                    "en_colombia": True,
+                    "en_bioma_activo": True,
+                    "permite_comentario": True,
+                    "mensaje_comentario": "",
+                    "region": {
+                        "bioma": props.get("bioma"),
+                        "id_regionC": rid,
+                        "id_region": props.get("id_region"),
+                        "interprete_responsable": interprete_de_region(rid),
+                    },
+                }
+            )
+            return base
+
+        n_col = int(
+            ee.FeatureCollection(PATHS["region_vector"])
+            .filterBounds(point)
+            .size()
+            .getInfo()
+            or 0
+        )
+        en_colombia = n_col > 0
+        base["en_colombia"] = en_colombia
+        if not en_colombia:
+            base["mensaje_comentario"] = (
+                "Solo se pueden crear comentarios dentro del territorio de Colombia."
+            )
+        else:
+            base["mensaje_comentario"] = (
+                "El punto está fuera de los biomas ejecutados. "
+                "Ejecuta el bioma correspondiente para comentar aquí."
+            )
+        return base
+    except Exception as e:
+        logger.exception("Error validando ubicación de comentario")
+        raise HTTPException(
+            status_code=503, detail=f"No se pudo validar la ubicación: {e}"
+        ) from e
+
+
+def validar_ubicacion_comentario(
+    lat: float, lon: float, biomas: Optional[list[str]] = None
+) -> None:
+    """Raises HTTPException if the point cannot receive a TEAM comment."""
+    result = evaluar_ubicacion_comentario(lat, lon, biomas)
+    if not result.get("permite_comentario"):
+        raise HTTPException(
+            status_code=400,
+            detail=result.get("mensaje_comentario")
+            or "Ubicación no válida para comentarios.",
+        )
+
+
+def evaluar_ubicaciones_lote(
+    puntos: list[tuple[float, float]],
+    biomas: Optional[list[str]] = None,
+) -> list[dict[str, Any]]:
+    """
+    Valida N puntos en un solo round-trip a Earth Engine.
+    puntos: lista de (lat, lon). Devuelve una entrada por punto (mismo orden).
+    """
+    if not puntos:
+        return []
+
+    if not biomas:
+        msg = "Ejecuta al menos un bioma antes de crear comentarios."
+        return [
+            {
+                "lat": float(lat),
+                "lon": float(lon),
+                "permite_comentario": False,
+                "mensaje_comentario": msg,
+                "region": None,
+            }
+            for lat, lon in puntos
+        ]
+
+    internos = expandir_biomas(biomas)
+    if not internos:
+        msg = "Selecciona al menos un bioma ejecutado."
+        return [
+            {
+                "lat": float(lat),
+                "lon": float(lon),
+                "permite_comentario": False,
+                "mensaje_comentario": msg,
+                "region": None,
+            }
+            for lat, lon in puntos
+        ]
+
+    # Pre-filtro bbox (sin EE)
+    prelim: list[dict[str, Any]] = []
+    pendientes: list[tuple[int, float, float]] = []
+    for i, (lat, lon) in enumerate(puntos):
+        lat_f, lon_f = float(lat), float(lon)
+        if not _bbox_colombia(lat_f, lon_f):
+            prelim.append(
+                {
+                    "lat": lat_f,
+                    "lon": lon_f,
+                    "permite_comentario": False,
+                    "mensaje_comentario": (
+                        "Solo se pueden crear comentarios dentro del "
+                        "territorio de Colombia."
+                    ),
+                    "region": None,
+                }
+            )
+        else:
+            prelim.append({})  # placeholder
+            pendientes.append((i, lat_f, lon_f))
+
+    if not pendientes:
+        return prelim
+
+    try:
+        region = _region_class(internos)
+        feats = [
+            ee.Feature(
+                ee.Geometry.Point([lon, lat]),
+                {"idx": idx, "lat": lat, "lon": lon},
+            )
+            for idx, lat, lon in pendientes
+        ]
+        fc = ee.FeatureCollection(feats)
+
+        def _annotate(f: ee.Feature) -> ee.Feature:
+            hit = region.filterBounds(f.geometry())
+            first = ee.Feature(hit.first())
+            return f.set(
+                {
+                    "n": hit.size(),
+                    "bioma": first.get("bioma"),
+                    "id_regionC": first.get("id_regionC"),
+                    "id_region": first.get("id_region"),
+                }
+            )
+
+        annotated = fc.map(_annotate).getInfo() or {}
+        features = annotated.get("features") or []
+        by_idx: dict[int, dict[str, Any]] = {}
+        for feat in features:
+            props = feat.get("properties") or {}
+            idx = int(props.get("idx"))
+            n_bio = int(props.get("n") or 0)
+            lat_f = float(props.get("lat"))
+            lon_f = float(props.get("lon"))
+            if n_bio > 0:
+                rid = props.get("id_regionC")
+                by_idx[idx] = {
+                    "lat": lat_f,
+                    "lon": lon_f,
+                    "permite_comentario": True,
+                    "mensaje_comentario": "",
+                    "region": {
+                        "bioma": props.get("bioma"),
+                        "id_regionC": rid,
+                        "id_region": props.get("id_region"),
+                        "interprete_responsable": interprete_de_region(rid),
+                    },
+                }
+            else:
+                by_idx[idx] = {
+                    "lat": lat_f,
+                    "lon": lon_f,
+                    "permite_comentario": False,
+                    "mensaje_comentario": (
+                        "El punto está fuera de los biomas ejecutados. "
+                        "Ejecuta el bioma correspondiente para comentar aquí."
+                    ),
+                    "region": None,
+                }
+
+        for idx, lat_f, lon_f in pendientes:
+            prelim[idx] = by_idx.get(
+                idx,
+                {
+                    "lat": lat_f,
+                    "lon": lon_f,
+                    "permite_comentario": False,
+                    "mensaje_comentario": "No se pudo validar la ubicación.",
+                    "region": None,
+                },
+            )
+        return prelim
+    except Exception as e:
+        logger.exception("Error validando lote de comentarios")
+        raise HTTPException(
+            status_code=503, detail=f"No se pudo validar la ubicación: {e}"
+        ) from e

@@ -1,75 +1,95 @@
-# Validation TEAM (GAIA 2026)
+# Validation TEAM
 
-Herramienta de **validación colaborativa** MapBiomas Colombia (Col3 vs Col4) para el equipo técnico. Misma estrategia operativa que `Validation` (FastAPI + React/Leaflet + Earth Engine + Sheets/JSON), con la **lógica del script GEE base** (biomas, versiones regionales Col4, filtro de coberturas, inspector Col3/Col4) y un **sistema de comentarios** orientado a correcciones.
+Collaborative MapBiomas Colombia validation workstation (Collection 3 vs Collection 4).
 
-> No es una copia del editor Code Editor: es el mismo flujo de decisión (bioma → mosaico → año → inspección → comentario), implementado como app web modular.
+FastAPI backend + React / Leaflet frontend. Supports biome mosaics, Landsat overlays, pixel inspection, team comments, and a statistics panel.
 
-## Estructura
+## Repository layout
 
 ```
 Validation_TEAM/
-├── backend/                 # API FastAPI
-│   ├── core/                # config, biomas, leyenda, versiones, paths, EE, Sheets
-│   ├── services/            # comparación Col3/Col4 + persistencia comentarios
-│   ├── routers/             # HTTP
-│   ├── models/              # Pydantic Registro TEAM
-│   ├── db/                  # SQLAlchemy (opcional)
-│   ├── credentials.json     # service account (copiado de Validation)
-│   └── data/                # fallback JSON local
-├── visor-team/              # Frontend Vite + React + Leaflet
-├── docs/ARCHITECTURE.md
-└── README.md
+├── backend/                 API (FastAPI, Earth Engine, stats, comments)
+├── frontend/                Web client (Vite + React + Leaflet)
+├── data/                    Local runtime assets (SQLite, Excel)
+│   └── reference/           Non-runtime reference material
+├── docs/                    Product and operations documentation
+├── scripts/                 setup_dev.ps1, clean.ps1, build_exe.ps1
+├── packaging/               Desktop packaging notes
+├── .github/workflows/       CI (pytest + frontend build)
+├── launcher.py              Windows executable entrypoint
+└── Validation_TEAM.spec     PyInstaller specification
 ```
 
-## Arranque local (Conda + 2 terminales)
+## Requirements
 
-### Una vez — crear el entorno
+- Conda or Python 3.13+
+- Node.js 20+
+- Google Earth Engine service account (`backend/credentials.json`)
+- Internet access (EE tiles, basemaps)
+
+## First clone (checklist)
+
+1. Clone the repository
+2. Run `.\scripts\setup_dev.ps1`
+3. Copy `backend/credentials.json` (Earth Engine service account)
+4. Copy `backend/.env.example` → `backend/.env` and set OAuth / Sheets IDs
+5. Copy `data/mapbiomas.db` from the Statistics project ([data/README.md](data/README.md))
+6. Optional: copy Excel interpreter file into `data/` (already in repo if present)
+
+See [docs/SETUP.md](docs/SETUP.md) for full configuration.
+
+## Local development
 
 ```powershell
-conda create -n validation-team python=3.13 -y
 conda activate validation-team
 cd D:\GAIA2026_desarrollo\Validation_TEAM
-pip install -r backend\requirements.txt
+.\scripts\setup_dev.ps1
 ```
 
-### Terminal 1 — Backend
+Terminal 1 — API:
 
 ```powershell
-conda activate validation-team
-cd D:\GAIA2026_desarrollo\Validation_TEAM
 uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000 --app-dir .
 ```
 
-API: `http://127.0.0.1:8000` · docs: `/docs`
-
-Los comentarios viven solo en `backend/data/comentarios_team.json` (no en la hoja de Validation).
-
-### Terminal 2 — Frontend
+Terminal 2 — UI:
 
 ```powershell
-cd D:\GAIA2026_desarrollo\Validation_TEAM\visor-team
-npm install
+cd frontend
 npm run dev
 ```
 
-Visor: `http://127.0.0.1:5173`
+- API: http://127.0.0.1:8000  
+- UI: http://127.0.0.1:5173  
 
-## Flujo de uso
+## Maintenance scripts
 
-1. Marcar uno o más **biomas** y pulsar **Ejecutar**.
-2. Revisar inventario de assets Col4 (encontrados / faltantes).
-3. Ajustar **año**, capas Col3/Col4/bordes/Landsat y filtro de coberturas.
-4. Clic en el mapa para inspeccionar Col3 vs Col4; modo comentario para guardar.
-5. Guardar: Corrección / Confirmado / Duda / Nota.
+| Script | Purpose |
+|--------|---------|
+| `scripts/setup_dev.ps1` | Install Python + npm deps, verify local config |
+| `scripts/clean.ps1` | Remove build artifacts, `__pycache__`, SQLite WAL sidecars |
+| `scripts/build_exe.ps1` | Build Windows desktop package |
 
-## Credenciales
+## Desktop package
 
-- `backend/credentials.json` — misma service account que `Validation` (solo EE).
-- Comentarios: **separados** de Validation. Default JSON local.
-- Variables opcionales: ver `backend/.env.example` (`PUNTOS_BACKEND`, `GOOGLE_SHEET_ID` propio de TEAM, `DATABASE_URL`).
+```powershell
+.\scripts\build_exe.ps1
+```
 
-Para producción futura (mismo patrón Vercel + Render), no es necesario desplegar ahora: el foco es funcionalidad local.
+Output: `release/Validation_TEAM/`. See [docs/PACKAGING.md](docs/PACKAGING.md).
 
-## Documentación
+## Documentation
 
-Ver [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+| Document | Topic |
+|----------|--------|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Team workflow, PR checklist |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design and data flow |
+| [docs/SETUP.md](docs/SETUP.md) | Environment and configuration |
+| [docs/CREDENTIALS.md](docs/CREDENTIALS.md) | Secrets and persistence backends |
+| [docs/AUTH.md](docs/AUTH.md) | Google Sign-In (@gaiaamazonas.org) |
+| [docs/PACKAGING.md](docs/PACKAGING.md) | Windows `.exe` distribution |
+| [data/README.md](data/README.md) | Local data assets |
+
+## License / ownership
+
+Internal GAIA 2026 / MapBiomas Colombia tooling.

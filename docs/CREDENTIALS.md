@@ -1,24 +1,31 @@
-# Credenciales y secretos
+# Credentials and secrets
 
-## Archivos locales
+## Local files
 
-| Archivo | Uso |
-|---------|-----|
-| `backend/credentials.json` | Service account Google (solo EE). Misma cuenta que Validation está bien. |
-| `backend/data/comentarios_team.json` | **Almacén por defecto** de comentarios TEAM (aislado de Validation). |
+| File | Role |
+|------|------|
+| `backend/credentials.json` | Google service account (Earth Engine; optional Sheets) |
+| `backend/data/comentarios_team.json` | Default TEAM comment store |
 
-## Variables de entorno
+Never commit credentials to public remotes.
 
-| Variable | Descripción |
+## Environment variables
+
+| Variable | Description |
 |----------|-------------|
-| `GOOGLE_CREDENTIALS` | JSON de la service account (producción Render). |
-| `PUNTOS_BACKEND` | Default `json`. También: `sheets` \| `database` \| `auto` |
-| `PUNTOS_JSON_PATH` | Ruta del JSON TEAM (default `backend/data/comentarios_team.json`) |
-| `GOOGLE_SHEET_ID` | Solo si usas Sheets: ID de una hoja **propia de TEAM**. Vacío = no Sheets. |
-| `DATABASE_URL` | PostgreSQL (opcional) |
+| `GOOGLE_CREDENTIALS` | Inline service-account JSON (hosted deploys) |
+| `PUNTOS_BACKEND` | `json` (default), `sheets`, `database`, or `auto` |
+| `PUNTOS_JSON_PATH` | Override path for the JSON comment store |
+| `GOOGLE_SHEET_ID` | Dedicated TEAM spreadsheet only (do not reuse Validation) |
+| `DATABASE_URL` | Optional PostgreSQL URL |
+| `STATISTICS_DB_PATH` | Override path to `mapbiomas.db` |
+| `AVANCE_COLOMBIA_XLSX` | Override path to the Col4 progress workbook |
+| `AVANCE_SHEET` | Workbook sheet name (default `MAPA GENERAL COLOMBIA`) |
+| `SERVE_STATIC` | `1` to serve `frontend/dist` from the API |
+| `VALIDATION_TEAM_ROOT` | Install root override for packaged builds |
 
-## Buenas prácticas
+## Practices
 
-- **No** reutilizar la hoja Google de Validation; los comentarios de ambos proyectos no deben mezclarse.
-- No subir `credentials.json` a repositorios públicos.
-- Desarrollo local: deja `PUNTOS_BACKEND=json` (ya es el default).
+- Keep TEAM comments isolated from the Validation spreadsheet.
+- Prefer local JSON for day-to-day team work.
+- Rotate service-account keys when access changes.

@@ -8,6 +8,7 @@ from backend.core.biomas import BIOMAS_VISIBLES, BIOMAS_INTERNOS, COLOR_POR_BIOM
 from backend.core.leyenda import leyenda_frontend
 from backend.core.paths import COL3_MAX_YEAR, YEAR_MAX, YEAR_MIN
 from backend.services import comparacion_service
+from backend.services.landsat_service import listar_estilos_landsat
 
 router = APIRouter()
 
@@ -22,6 +23,7 @@ def obtener_configuracion():
         "biomasInternos": BIOMAS_INTERNOS,
         "coloresBioma": COLOR_POR_BIOMA,
         "leyenda": leyenda_frontend(),
+        "landsatStyles": listar_estilos_landsat(),
         "capas": [
             {
                 "id": "col4",

@@ -1,7 +1,18 @@
-# Datos locales de Validation_TEAM (independientes de Statistics / Validation).
-#
-# mapbiomas.db — SQLite de áreas Col4 (copiar desde Statistics cuando haga falta):
-#   copy ..\Statistics\data\mapbiomas.db .\mapbiomas.db
-#
-# El Excel de intérpretes vive en la raíz del repo:
-#   COLOMBIA_COL_4_Formatos de avance detallado Colombia.xlsx
+# Data assets
+
+| File | Purpose |
+|------|---------|
+| `mapbiomas.db` | SQLite statistics database (Col4 metrics). Not versioned. |
+| `COLOMBIA_COL_4_Formatos de avance detallado Colombia.xlsx` | Interpreter lookup (column A × region id in B). |
+| `reference/` | Non-runtime reference material (legend PDF source notes). |
+
+## Refreshing the statistics database
+
+Copy from the Statistics project when metrics are updated:
+
+```powershell
+Copy-Item D:\GAIA2026_desarrollo\Statistics\data\mapbiomas.db `
+  D:\GAIA2026_desarrollo\Validation_TEAM\data\mapbiomas.db -Force
+```
+
+Adjust the source path to match your Statistics checkout.

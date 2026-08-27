@@ -51,6 +51,31 @@ def _is_retryable(exc: BaseException) -> bool:
     return isinstance(exc, (ConnectionError, TimeoutError, OSError))
 
 
+HEADERS = [
+    "timestamp",
+    "lat",
+    "lon",
+    "nombre",
+    "comentario",
+    "clase_sugerida",
+    "anio_contexto",
+    "bioma",
+    "resuelto",
+    "creado_por",
+    "resuelto_por",
+    "foto_url",
+    "grupo_id",
+]
+
+
+def ensure_header_row(ws: "Worksheet") -> None:
+    first = [str(c).strip() for c in (ws.row_values(1) or [])]
+    expected = list(HEADERS)
+    if first[: len(expected)] == expected:
+        return
+    ws.update([HEADERS], f"A1:{chr(ord('A') + len(HEADERS) - 1)}1")
+
+
 @retry(
     retry=retry_if_exception(_is_retryable),
     wait=wait_exponential(multiplier=1, min=2, max=60),

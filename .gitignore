@@ -1,25 +1,47 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
 .venv/
 venv/
 .env
 .env.*
 !.env.example
+.pytest_cache/
+*.egg-info/
+*.egg
+.coverage
+htmlcov/
 
-# Node
+# Node / frontend
 node_modules/
-dist/
-.DS_Store
+frontend/dist/
 
-# Secrets (no publicar en GitHub)
+# Build artifacts (PyInstaller)
+build/
+dist/
+release/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets
 backend/credentials.json
 backend/.env
 
+# Runtime data (not versioned)
+backend/data/comentarios_team.json
 backend/data/*.lock
-*.log
-
-# BD de estadísticas (copia local grande; no versionar)
 data/mapbiomas.db
 data/mapbiomas.db-shm
 data/mapbiomas.db-wal
+
+*.log
