@@ -1,0 +1,30 @@
+{
+  "registros": [
+    [
+      "2026-08-25 01:08",
+      4.6,
+      -74.1,
+      "Comentario de prueba",
+      "Test TEAM",
+      "correction",
+      2020,
+      "3",
+      "21",
+      "Andes",
+      "3"
+    ],
+    [
+      "2026-08-25 01:09",
+      4.6,
+      -74.1,
+      "Comentario de prueba",
+      "Test TEAM",
+      "correction",
+      2020,
+      "3",
+      "21",
+      "Andes",
+      "3"
+    ]
+  ]
+}

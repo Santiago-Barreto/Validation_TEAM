@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+.DS_Store
+
+# Secrets (no publicar en GitHub)
+backend/credentials.json
+backend/.env
+
+backend/data/*.lock
+*.log
+
+# BD de estadísticas (copia local grande; no versionar)
+data/mapbiomas.db
+data/mapbiomas.db-shm
+data/mapbiomas.db-wal
