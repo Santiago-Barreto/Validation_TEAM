@@ -56,6 +56,7 @@ export default function App() {
     col4: true,
     col3: false,
     bordes: false,
+    solar: true,
   });
 
   const [selectedClasses, setSelectedClasses] = useState([]);
@@ -68,11 +69,13 @@ export default function App() {
   const [draftPoints, setDraftPoints] = useState([]);
   const [clickPos, setClickPos] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingComment, setEditingComment] = useState(null);
   const [identify, setIdentify] = useState(null);
   const [loadingIdentify, setLoadingIdentify] = useState(false);
   const [queuedOfflineCount, setQueuedOfflineCount] = useState(() =>
     getQueuedCount(),
   );
+  const [solarPlants, setSolarPlants] = useState([]);
   const [biomeStats, setBiomeStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [mapFocus, setMapFocus] = useState(null);
@@ -198,6 +201,32 @@ export default function App() {
     };
   }, [executed, executedBiomas]);
 
+  useEffect(() => {
+    if (!executed || !executedBiomas.length || !layersVisible.solar) {
+      setSolarPlants([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const bq = executedBiomas
+      .map((b) => `biomas=${encodeURIComponent(b)}`)
+      .join("&");
+    fetch(`${API_URL}/solar?${bq}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (!cancelled) setSolarPlants(data.points || []);
+      })
+      .catch((err) => {
+        console.error("Error plantas solares:", err);
+        if (!cancelled) setSolarPlants([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [executed, executedBiomas, layersVisible.solar]);
+
   const toggleBioma = (b) => {
     setSelectedBiomas((prev) =>
       prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b],
@@ -248,6 +277,7 @@ export default function App() {
         };
         setDraftPoints((prev) => [...prev, point]);
         setClickPos(latlng);
+        setEditingComment(null);
         setDrawerOpen(true);
         return;
       }
@@ -374,6 +404,12 @@ export default function App() {
           year={tempYear}
           mapFocus={mapFocus}
           onCommentResolved={() => refetchComentarios()}
+          solarPlants={layersVisible.solar ? solarPlants : []}
+          onCommentEdit={(punto) => {
+            setDraftPoints([]);
+            setDrawerOpen(false);
+            setEditingComment(punto);
+          }}
           landsatStyle={landsatStyle}
           swipeMode={swipeMode}
           swipeRatio={swipeRatio}
@@ -423,12 +459,16 @@ export default function App() {
         />
       </main>
 
-      {drawerOpen && draftPoints.length > 0 && (
+      {(editingComment || (drawerOpen && draftPoints.length > 0)) && (
         <CommentDrawer
           draftPoints={draftPoints}
           year={year}
           biomas={executedBiomas}
-          onClose={() => setDrawerOpen(false)}
+          editingComment={editingComment}
+          onClose={() => {
+            setDrawerOpen(false);
+            setEditingComment(null);
+          }}
           onSaved={() => {
             refetchComentarios();
             setQueuedOfflineCount(getQueuedCount());

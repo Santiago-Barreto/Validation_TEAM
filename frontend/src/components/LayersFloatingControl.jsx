@@ -4,6 +4,7 @@ const LAYER_META = [
   { key: "col4", label: "Colección 4" },
   { key: "landsat", label: "Landsat mosaico" },
   { key: "bordes", label: "Bordes biomas" },
+  { key: "solar", label: "Paneles solares GEM" },
 ];
 
 export default function LayersFloatingControl({

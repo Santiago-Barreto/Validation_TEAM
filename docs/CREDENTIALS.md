@@ -19,8 +19,10 @@ Never commit credentials to public remotes.
 | `GOOGLE_SHEET_ID` | Dedicated TEAM spreadsheet only (do not reuse Validation) |
 | `DATABASE_URL` | Optional PostgreSQL URL |
 | `STATISTICS_DB_PATH` | Override path to `mapbiomas.db` |
-| `AVANCE_COLOMBIA_XLSX` | Override path to the Col4 progress workbook |
-| `AVANCE_SHEET` | Workbook sheet name (default `MAPA GENERAL COLOMBIA`) |
+| `AVANCE_SHEET_ID` | Google Spreadsheet for interpreter assignment (online; preferred) |
+| `AVANCE_SHEET_GID` | Tab gid within that spreadsheet (optional; e.g. `200812869`) |
+| `AVANCE_SHEET` | Tab name (default `MAPA GENERAL COLOMBIA`) |
+| `AVANCE_COLOMBIA_XLSX` | Fallback local Excel if Sheets is unavailable |
 | `SERVE_STATIC` | `1` to serve `frontend/dist` from the API |
 | `VALIDATION_TEAM_ROOT` | Install root override for packaged builds |
 

@@ -6,9 +6,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.core.auth import AuthUser, require_user
+from backend.models.editar import EditarComentario
 from backend.models.registro import LoteComentarios, Registro
 from backend.models.resolver import ResolverComentario
 from backend.services import puntos_storage
+from backend.services.puntos_storage import ComentarioNoAutorizadoError
 
 logger = logging.getLogger(__name__)
 
@@ -170,3 +172,36 @@ def resolver_comentario(
     except Exception as e:
         logger.exception("Error resolviendo comentario: %s", e)
         raise HTTPException(status_code=500, detail="Error al resolver el comentario")
+
+
+@router.post("/editar")
+def editar_comentario(
+    body: EditarComentario, user: AuthUser = Depends(require_user)
+):
+    try:
+        ok = puntos_storage.actualizar_comentario(
+            comentario=body.comentario,
+            clase_sugerida=body.clase_sugerida,
+            autor=user.email,
+            timestamp=body.timestamp,
+            lat=body.lat,
+            lon=body.lon,
+            grupo_id=body.grupo_id,
+        )
+        if not ok:
+            raise HTTPException(status_code=404, detail="Comentario no encontrado")
+        return {
+            "status": "success",
+            "actualizados": ok,
+            "editado_por": user.email,
+        }
+    except ComentarioNoAutorizadoError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        logger.warning("%s", e)
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Error editando comentario: %s", e)
+        raise HTTPException(status_code=500, detail="Error al editar el comentario")

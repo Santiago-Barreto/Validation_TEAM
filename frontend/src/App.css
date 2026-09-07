@@ -1316,6 +1316,45 @@
   border-radius: 50%;
 }
 
+.solar-marker-icon {
+  background: transparent;
+  border: none;
+}
+
+.solar-pin {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+  color: #1f2937;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  border: 1.5px solid #fff;
+}
+
+.solar-pin.is-operating {
+  background: #facc15;
+}
+
+.solar-pin.is-construction {
+  background: #fb923c;
+}
+
+.solar-popup {
+  min-width: 160px;
+}
+
+.solar-popup p {
+  margin: 0.25rem 0 0;
+}
+
+.solar-popup-phase {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
 .cluster-wrap {
   background: transparent;
 }
@@ -1442,6 +1481,16 @@
   background: rgba(16, 185, 129, 0.15);
   color: var(--accent-dark);
   border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.resolve-edit {
+  background: rgba(99, 102, 241, 0.12);
+  color: #3730a3;
+  border: 1px solid rgba(99, 102, 241, 0.28);
+}
+
+.resolve-edit:hover:not(:disabled) {
+  filter: brightness(0.96);
 }
 
 .resolve-ok:hover:not(:disabled) {

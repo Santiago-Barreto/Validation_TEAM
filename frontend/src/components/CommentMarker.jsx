@@ -32,9 +32,9 @@ function commentIcon(fotoUrl, label) {
   });
 }
 
-function CommentMarker({ punto, onResolved }) {
+function CommentMarker({ punto, onResolved, onEdit }) {
   const map = useMap();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
 
@@ -101,6 +101,11 @@ function CommentMarker({ punto, onResolved }) {
     }
   };
 
+  const isMine =
+    Boolean(user?.email) &&
+    String(punto.creadoPor || "").trim().toLowerCase() ===
+      String(user.email).trim().toLowerCase();
+
   const showPhoto = Boolean(punto.fotoUrl) && !imgFailed;
   const initial = (autor.charAt(0) || "?").toUpperCase();
 
@@ -145,6 +150,17 @@ function CommentMarker({ punto, onResolved }) {
             {punto.grupoId ? " · grupo" : ""}
           </small>
           <div className="comment-resolve-actions">
+            {isMine && (
+              <button
+                type="button"
+                className="resolve-btn resolve-edit"
+                disabled={busy}
+                title="Editar tu comentario"
+                onClick={() => onEdit?.(punto)}
+              >
+                Editar
+              </button>
+            )}
             <button
               type="button"
               className="resolve-btn resolve-ok"

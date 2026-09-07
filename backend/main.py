@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.core.runtime_paths import get_static_dir, is_frozen
-from backend.routers import auth, landsat, mapbiomas, puntos, stats
+from backend.routers import auth, landsat, mapbiomas, puntos, solar, stats
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,6 +50,7 @@ app.include_router(mapbiomas.router, tags=["MapBiomas"])
 app.include_router(landsat.router, tags=["Landsat"])
 app.include_router(stats.router, tags=["Statistics"])
 app.include_router(puntos.router, tags=["Comments"])
+app.include_router(solar.router, tags=["Solar"])
 
 
 @app.get("/health")

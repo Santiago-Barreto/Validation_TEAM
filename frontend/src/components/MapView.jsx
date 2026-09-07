@@ -9,6 +9,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import MapClickHandler from "./MapClickHandler";
 import CommentMarker from "./CommentMarker";
 import MapFocusController from "./MapFocusController";
+import SolarMarkers from "./SolarMarkers";
 import { SwipeDivider, SwipeLayers } from "./MapSwipe";
 import { BASEMAPS, COLOMBIA_CENTER, COLOMBIA_ZOOM } from "../config/basemaps";
 
@@ -57,6 +58,8 @@ function MapView({
   year,
   mapFocus,
   onCommentResolved,
+  onCommentEdit,
+  solarPlants = [],
   landsatStyle = "green",
   swipeMode = false,
   swipeRatio = 0.5,
@@ -76,10 +79,17 @@ function MapView({
     <MapContainer
       center={COLOMBIA_CENTER}
       zoom={COLOMBIA_ZOOM}
+      maxZoom={basemap.maxZoom || 21}
       className={`map-root${swipeMode ? " map-root-swipe" : ""}`}
       zoomControl
     >
-      <TileLayer url={basemap.url} attribution={basemap.attribution} />
+      <TileLayer
+        url={basemap.url}
+        attribution={basemap.attribution}
+        subdomains={basemap.subdomains}
+        maxZoom={basemap.maxZoom || 21}
+        maxNativeZoom={basemap.maxNativeZoom || basemap.maxZoom || 21}
+      />
 
       {swipeMode ? (
         <>
@@ -117,6 +127,8 @@ function MapView({
         <TileLayer url={tiles.bordes} opacity={1} zIndex={500} />
       )}
 
+      {solarPlants.length > 0 && <SolarMarkers plants={solarPlants} />}
+
       <MapFocusController focus={mapFocus} />
       <MapClickHandler enabled={clickEnabled} onClick={onMapClick} />
 
@@ -148,6 +160,7 @@ function MapView({
             key={p.id}
             punto={p}
             onResolved={onCommentResolved}
+            onEdit={onCommentEdit}
           />
         ))}
       </MarkerClusterGroup>

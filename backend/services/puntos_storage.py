@@ -32,11 +32,18 @@ from backend.models.registro import Registro
 logger = logging.getLogger(__name__)
 
 # Columnas 1-based en Google Sheets
+_COMENTARIO_COL = 5
+_CLASE_SUGERIDA_COL = 6
 _RESUELTO_COL = 9
 _RESUELTO_POR_COL = 11
+_CREADO_POR_COL_IDX = 9  # 0-based
 _GRUPO_ID_COL_IDX = 12  # 0-based en filas
 _COORD_EPS = 1e-5
 _MIN_ROW_LEN = 13
+
+
+class ComentarioNoAutorizadoError(PermissionError):
+    """El usuario no es el autor del comentario."""
 
 
 def _ensure_grupo_id(r: Registro) -> str:
@@ -57,6 +64,12 @@ def _row_grupo_id(row: List[Any]) -> str:
     if len(row) <= _GRUPO_ID_COL_IDX:
         return ""
     return str(row[_GRUPO_ID_COL_IDX] or "").strip()
+
+
+def _row_creado_por(row: List[Any]) -> str:
+    if len(row) <= _CREADO_POR_COL_IDX:
+        return ""
+    return str(row[_CREADO_POR_COL_IDX] or "").strip().lower()
 
 
 def _resolved_mode() -> str:
@@ -310,6 +323,189 @@ def resolver_registro(
         except Exception:
             logger.exception("Resolver en Sheets fallo; intentando JSON.")
     return _resolver_json(PUNTOS_JSON_PATH, timestamp, lat, lon, mark, who, gid)
+
+
+def actualizar_comentario(
+    *,
+    comentario: str,
+    clase_sugerida: Optional[int] = None,
+    autor: str,
+    timestamp: Optional[str] = None,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    grupo_id: Optional[str] = None,
+) -> int:
+    """
+    Actualiza texto/clase del comentario. Solo el autor (creado_por) puede editar.
+    Si hay grupo_id, aplica a todos los puntos del grupo.
+    """
+    texto = (comentario or "").strip()
+    if not texto:
+        raise ValueError("El comentario es obligatorio.")
+    who = (autor or "").strip().lower()
+    if not who:
+        raise ComentarioNoAutorizadoError("Sesión sin correo.")
+    gid = (grupo_id or "").strip()
+    clase = "" if clase_sugerida is None else str(int(clase_sugerida))
+    mode = _resolved_mode()
+
+    if mode == "database":
+        return _editar_db(timestamp, lat, lon, texto, clase, who, gid)
+    if mode == "json":
+        return _editar_json(PUNTOS_JSON_PATH, timestamp, lat, lon, texto, clase, who, gid)
+    if mode == "sheets":
+        return _editar_sheets(timestamp, lat, lon, texto, clase, who, gid)
+
+    if sheets_client.get_worksheet() is not None:
+        try:
+            n = _editar_sheets(timestamp, lat, lon, texto, clase, who, gid)
+            if n:
+                return n
+        except ComentarioNoAutorizadoError:
+            raise
+        except Exception:
+            logger.exception("Editar en Sheets fallo; intentando JSON.")
+    return _editar_json(PUNTOS_JSON_PATH, timestamp, lat, lon, texto, clase, who, gid)
+
+
+def _editar_sheets(
+    timestamp: Optional[str],
+    lat: Optional[float],
+    lon: Optional[float],
+    texto: str,
+    clase: str,
+    who: str,
+    grupo_id: str = "",
+) -> int:
+    ws = sheets_client.require_worksheet()
+    datos = ws.get_all_values()
+    targets: list[int] = []
+    for i, row in enumerate(datos[1:], start=2):
+        match = False
+        if grupo_id:
+            match = _row_grupo_id(row) == grupo_id
+        elif timestamp is not None and lat is not None and lon is not None:
+            match = _row_matches(row, timestamp, lat, lon)
+        if not match:
+            continue
+        owner = _row_creado_por(row)
+        if owner != who:
+            raise ComentarioNoAutorizadoError(
+                "Solo puedes editar comentarios que creaste tú."
+            )
+        targets.append(i)
+        if not grupo_id:
+            break
+    if not targets:
+        return 0
+    updates = []
+    for row_i in targets:
+        updates.append({"range": f"E{row_i}", "values": [[texto]]})
+        updates.append({"range": f"F{row_i}", "values": [[clase]]})
+    ws.batch_update(updates, value_input_option="USER_ENTERED")
+    try:
+        refreshed = ws.get_all_values()
+        _sync_json_fallback(refreshed[1:] if refreshed else [])
+    except Exception:
+        logger.debug("No se pudo sincronizar JSON tras editar.", exc_info=True)
+    return len(targets)
+
+
+def _editar_json(
+    path: str,
+    timestamp: Optional[str],
+    lat: Optional[float],
+    lon: Optional[float],
+    texto: str,
+    clase: str,
+    who: str,
+    grupo_id: str = "",
+) -> int:
+    lock_path = path + ".lock"
+    _ensure_json_parent(path)
+    with FileLock(lock_path, timeout=30):
+        rows: List[List[Any]] = []
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+                rows = list(data.get("registros", []))
+        updated = 0
+        for row in rows:
+            match = False
+            if grupo_id:
+                match = _row_grupo_id(row) == grupo_id
+            elif timestamp is not None and lat is not None and lon is not None:
+                match = _row_matches(row, timestamp, lat, lon)
+            if not match:
+                continue
+            if _row_creado_por(row) != who:
+                raise ComentarioNoAutorizadoError(
+                    "Solo puedes editar comentarios que creaste tú."
+                )
+            _pad_row(row)
+            row[4] = texto
+            row[5] = clase
+            updated += 1
+            if not grupo_id:
+                break
+        if updated:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"registros": rows}, f, ensure_ascii=False, indent=2)
+        return updated
+
+
+def _editar_db(
+    timestamp: Optional[str],
+    lat: Optional[float],
+    lon: Optional[float],
+    texto: str,
+    clase: str,
+    who: str,
+    grupo_id: str = "",
+) -> int:
+    if SessionLocal is None:
+        raise RuntimeError("SessionLocal no inicializado.")
+    db: Session = SessionLocal()
+    try:
+        candidates: list[Any] = []
+        if grupo_id and hasattr(PuntoValidacion, "grupo_id"):
+            candidates = (
+                db.query(PuntoValidacion)
+                .filter(PuntoValidacion.grupo_id == grupo_id)
+                .all()
+            )
+        elif timestamp is not None and lat is not None and lon is not None:
+            try:
+                created = datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M")
+            except ValueError:
+                return 0
+            q = (
+                db.query(PuntoValidacion)
+                .filter(PuntoValidacion.created_at == created)
+                .all()
+            )
+            candidates = [
+                p
+                for p in q
+                if _coords_match(p.lat, lat) and _coords_match(p.lon, lon)
+            ]
+        if not candidates:
+            return 0
+        updated = 0
+        for p in candidates:
+            owner = str(getattr(p, "creado_por", "") or "").strip().lower()
+            if owner != who:
+                raise ComentarioNoAutorizadoError(
+                    "Solo puedes editar comentarios que creaste tú."
+                )
+            p.comentario = texto
+            p.clase_sugerida = clase
+            updated += 1
+        if updated:
+            db.commit()
+        return updated
+    finally:
+        db.close()
 
 
 def _resolver_sheets(

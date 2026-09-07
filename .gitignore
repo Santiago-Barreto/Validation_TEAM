@@ -43,5 +43,6 @@ backend/data/*.lock
 data/mapbiomas.db
 data/mapbiomas.db-shm
 data/mapbiomas.db-wal
+data/Global-Solar-Power-Tracker-February-2026.xlsx
 
 *.log

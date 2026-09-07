@@ -21,7 +21,8 @@ cd D:\GAIA2026_desarrollo\Validation_TEAM
 
 | File | Purpose |
 |------|---------|
-| `data/COLOMBIA_COL_4_Formatos de avance detallado Colombia.xlsx` | Interpreter lookup on map click |
+| `AVANCE_SHEET_ID` in `.env` | Interpreter lookup from Google Sheets (recommended) |
+| `data/COLOMBIA_COL_4_Formatos de avance detallado Colombia.xlsx` | Fallback if Sheets not configured |
 | `backend/data/comentarios_team.json` | Only when `PUNTOS_BACKEND=json` (copy from `comentarios_team.example.json`) |
 
 ## Python environment (manual)
@@ -52,6 +53,24 @@ Default in `backend/.env.example` is Google Sheets:
 Each packaged PC needs `backend/.env` with the same `GOOGLE_SHEET_ID`.
 
 For offline / local JSON mode, set `PUNTOS_BACKEND=json` and create `backend/data/comentarios_team.json` from the example file.
+
+## Interpreter assignment (Google Sheets)
+
+The inspector shows **Intérprete responsable** from column A × region id in column B.
+
+**Online (recommended)** — add to `backend/.env`:
+
+```env
+AVANCE_SHEET_ID=1wXdOVwk4QVFojyhqop0rJBw9ExTfjroyVr6bmQGrs7k
+AVANCE_SHEET_GID=200812869
+AVANCE_SHEET=MAPA GENERAL COLOMBIA
+```
+
+Share the spreadsheet with the **service account email** from `backend/credentials.json` (Editor or Viewer).
+
+If Sheets is unavailable, the app falls back to the local Excel under `data/`.
+
+Restart the API after changing `.env` (interpreter map is cached in memory).
 
 ## Runtime data
 

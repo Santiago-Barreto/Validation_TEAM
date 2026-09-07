@@ -75,6 +75,10 @@ AVANCE_COLOMBIA_XLSX = os.path.normpath(
     os.environ.get("AVANCE_COLOMBIA_XLSX", _default_avance_xlsx)
 )
 AVANCE_SHEET = os.environ.get("AVANCE_SHEET", "MAPA GENERAL COLOMBIA")
+# Optional: read interpreter map from Google Sheets instead of local Excel.
+AVANCE_SHEET_ID = (os.environ.get("AVANCE_SHEET_ID") or "").strip() or None
+_avance_gid = (os.environ.get("AVANCE_SHEET_GID") or "").strip()
+AVANCE_SHEET_GID = int(_avance_gid) if _avance_gid.isdigit() else None
 
 GOOGLE_OAUTH_CLIENT_ID = (os.environ.get("GOOGLE_OAUTH_CLIENT_ID") or "").strip()
 _raw_domains = os.environ.get("AUTH_ALLOWED_DOMAINS", "gaiaamazonas.org")
